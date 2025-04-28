@@ -15,11 +15,13 @@ document.getElementById('searchForm').addEventListener('submit', async function(
   }
 
   try {
-    const allItems = await fetchAllVideos(playlistId);
+    let items;
 
-    let items = searchTerm
-      ? allItems.filter(item => item.snippet.title.toLowerCase().includes(searchTerm))
-      : allItems;
+    if (searchTerm) {
+      items = await searchVideosInPlaylist(playlistId, searchTerm);
+    } else {
+      items = await fetchAllVideos(playlistId);
+    }
 
     if (items.length === 0) {
       resultsContainer.innerHTML = `<li>No videos found.</li>`;
@@ -52,7 +54,7 @@ document.getElementById('searchForm').addEventListener('submit', async function(
 async function fetchAllVideos(playlistId) {
   let allItems = [];
   let nextPageToken = '';
-  
+
   do {
     const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${encodeURIComponent(playlistId)}&maxResults=50&pageToken=${nextPageToken}&key=${API_KEY}`;
     const response = await fetch(url);
@@ -69,6 +71,35 @@ async function fetchAllVideos(playlistId) {
   return allItems;
 }
 
+async function searchVideosInPlaylist(playlistId, searchTerm) {
+  let foundItems = [];
+  let nextPageToken = '';
+
+  do {
+    const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${encodeURIComponent(playlistId)}&maxResults=50&pageToken=${nextPageToken}&key=${API_KEY}`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error.message);
+    }
+
+    const matchingItems = data.items.filter(item =>
+      item.snippet.title.toLowerCase().includes(searchTerm)
+    );
+
+    foundItems = foundItems.concat(matchingItems);
+
+    // Stop early if matches are found (optional: remove this condition to find all matches)
+    if (foundItems.length > 0) {
+      break;
+    }
+
+    nextPageToken = data.nextPageToken || '';
+  } while (nextPageToken);
+
+  return foundItems;
+}
 
 function extractPlaylistId(url) {
   try {
@@ -77,4 +108,4 @@ function extractPlaylistId(url) {
   } catch (e) {
     return null;
   }
-}
+                      }
